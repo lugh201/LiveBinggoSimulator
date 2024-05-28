@@ -1,8 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const multer = require('multer');
-const path = require('path');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
@@ -12,46 +11,21 @@ app.use('/uploads', express.static('uploads'));
 mongoose.connect('mongodb://localhost:27017/bingo', { useNewUrlParser: true, useUnifiedTopology: true });
 
 const cardSchema = new mongoose.Schema({
-  imagePath: String,
-  numbers: [[mongoose.Schema.Types.Mixed]], // Use Mixed type to allow "FREE" and numbers
+  imageName: String,
+  numbers: [[mongoose.Schema.Types.Mixed]],
   marks: [[Boolean]],
 });
 const Card = mongoose.model('Card', cardSchema);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-const upload = multer({ storage });
-
-app.post('/upload-card', upload.single('file'), async (req, res) => {
-  const filePath = req.file.path;
-
-  // Mock numbers data (replace with actual OCR processing if available)
-  const numbers = [
-    [15, 27, 42, 55, 72],
-    [10, 29, 41, 56, 73],
-    [7, 26, "FREE", 52, 64],
-    [13, 21, 36, 59, 61],
-    [8, 23, 32, 58, 74]
-  ];
-
-  const card = new Card({
-    imagePath: filePath,
-    numbers,
-    marks: numbers.map(row => row.map(() => false)),
-  });
+app.post('/upload-cards', async (req, res) => {
+  const cards = req.body;
 
   try {
-    const savedCard = await card.save();
-    res.send(savedCard);
+    const savedCards = await Card.insertMany(cards);
+    res.send(savedCards);
   } catch (error) {
-    console.error('Error saving card:', error);
-    res.status(500).send('Error saving card');
+    console.error('Error uploading cards:', error);
+    res.status(500).send('Error uploading cards');
   }
 });
 
@@ -70,7 +44,7 @@ app.post('/draw-number', async (req, res) => {
   });
 
   await Card.bulkSave(cards);
-  res.send(cards); // Ensure sending complete card objects
+  res.send(cards);
 });
 
 app.post('/clear-marks', async (req, res) => {
@@ -81,7 +55,7 @@ app.post('/clear-marks', async (req, res) => {
   });
 
   await Card.bulkSave(cards);
-  res.send(cards); // Ensure sending complete card objects
+  res.send(cards);
 });
 
 app.delete('/clear-cards', async (req, res) => {
